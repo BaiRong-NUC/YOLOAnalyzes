@@ -91,7 +91,7 @@ def train():
         mosaic    = 1.0,
         mixup     = 0.1,
         # 输出路径
-        amp       = True,                 
+        amp       = False,      # true训练器在开始前会下载一个小模型(硬编码为 yolo11n.pt)            
         project   = str(OUTPUT_DIR),
         name      = "vehicles_yolov8n",
         exist_ok  = True,              # 允许覆盖已有实验
