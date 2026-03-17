@@ -69,7 +69,7 @@ def train():
     # ── 训练参数 ────────────────────────────────────────────────
     results = model.train(
         data      = str(DATA_YAML),   # 数据集 yaml
-        epochs    = 40,               # 训练轮次
+        epochs    = 100,               # 训练轮次
         imgsz     = 640,               # 输入图像尺寸
         batch     = batch_size,        # 批大小（自动适配显存）
         device    = device,            # GPU/CPU
