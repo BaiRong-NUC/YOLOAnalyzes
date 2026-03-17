@@ -412,19 +412,7 @@ def main():
     # ── 验证 ──────────────────────────────────
     verify()
 
-    header("🎉  安装完成！快速上手示例")
-    print("""
-from ultralytics import YOLO
-
-  # 加载预训练模型（首次运行会自动下载权重）
-  model = YOLO("yolov8n.pt")
-
-  # 推理
-  results = model("image.jpg")
-
-  # 训练（使用自定义数据集）
-  model.train(data="Data/Vehicles/data.yaml", epochs=100, imgsz=640)
-""")
+    header("🎉  环境安装完成  🎉")
 
 
 if __name__ == "__main__":
