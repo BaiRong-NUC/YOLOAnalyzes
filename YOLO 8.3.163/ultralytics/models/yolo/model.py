@@ -27,7 +27,8 @@ from ultralytics.nn.tasks import (
 from ultralytics.utils import ROOT, YAML
 
 
-# 该类为YOLO系列目标检测模型的统一接口,YOLO类继承了Mode类u
+# 该类为YOLO系列目标检测模型的统一接口,YOLO类继承了Mode类; 
+# Mode类定义:YOLO 8.3.163\ultralytics\engine\model.py
 # 它会根据模型文件名自动切换到专用模型类型(如YOLOWorld或YOLOE),
 # 支持检测,分割,分类,姿态估计,定向框等多种视觉任务.
 class YOLO(Model):
