@@ -44,32 +44,17 @@ from ultralytics.utils import (
 class Model(torch.nn.Module):
     """
     /** Model类的描述
-    用于实现 YOLO 模型的基类，统一了不同模型类型的 API。
-    此类为与 YOLO 模型相关的各种操作( 例如训练、验证、预测、导出和基准测试 )提供了一个通用接口
-    它支持不同类型的模型,包括从本地文件,Ultralytics HUB 或 Triton Server 加载的模型.
+        用于实现 YOLO 模型的基类，统一了不同模型类型的 API。
+        此类为与 YOLO 模型相关的各种操作( 例如训练、验证、预测、导出和基准测试 )提供了一个通用接口
+        它支持不同类型的模型,包括从本地文件,Ultralytics HUB 或 Triton Server 加载的模型.
     */
-
     A base class for implementing YOLO models, unifying APIs across different model types.
 
     This class provides a common interface for various operations related to YOLO models, such as training,
     validation, prediction, exporting, and benchmarking. It handles different types of models, including those
     loaded from local files, Ultralytics HUB, or Triton Server.
 
-    /** 类的成员变量
-    callbacks(dict)：模型运行期间各种事件的回调函数字典。
-    predictor(BasePredictor):用于进行预测的预测器对象。
-    model(torch.nn.Module):底层 PyTorch 模型。
-    trainer(BaseTrainer):用于训练模型的训练器对象。
-    ckpt(dict):如果模型是从 *.pt 文件加载的，则为检查点数据。
-    cfg(str):如果模型是从 *.yaml 文件加载的，则为模型的配置。
-    ckpt_path(str):检查点文件的路径。
-    overrides(dict):模型配置的覆盖字典。
-    metrics(dict):最新的训练/验证指标。
-    session(HUBTrainingSession):Ultralytics HUB 会话（如果适用）。
-    task(str):模型的目标任务类型。
-    model_name(str):模型的名称。
-    */
-
+    
     Attributes:
         callbacks (dict): A dictionary of callback functions for various events during model operations.
         predictor (BasePredictor): The predictor object used for making predictions.
@@ -83,6 +68,30 @@ class Model(torch.nn.Module):
         session (HUBTrainingSession): The Ultralytics HUB session, if applicable.
         task (str): The type of task the model is intended for.
         model_name (str): The name of the model.
+
+        
+    /**
+    类的成员方法:
+        __call__: predict 方法的别名，使模型实例可被调用。
+        _new: 根据配置文件初始化一个新模型。
+        _load: 从检查点文件加载模型。
+        _check_is_pytorch_model: 确保模型是 PyTorch 模型。
+        reset_weights: 将模型权重重置为初始状态。
+        load: 从指定文件加载模型权重。
+        save: 将模型的当前状态保存到文件。
+        info: 记录或返回有关模型的信息。
+        fuse: 融合 Conv2d 和 BatchNorm2d 层以优化推理。
+        predict: 执行目标检测预测。
+        track: 执行目标跟踪。
+        val: 在数据集上验证模型。
+        benchmark: 在各种导出格式上对模型进行基准测试。
+        export: 将模型导出为不同的格式。
+        train: 在数据集上训练模型。
+        tune: 执行超参数调优。 _apply: 将函数应用于模型的张量。
+        add_callback: 为事件添加回调函数。
+        clear_callback: 清除事件的所有回调函数。
+        reset_callbacks: 将所有回调函数重置为其默认值。
+    */
 
     Methods:
         __call__: Alias for the predict method, enabling the model instance to be callable.
@@ -108,18 +117,30 @@ class Model(torch.nn.Module):
 
     Examples:
         >>> from ultralytics import YOLO
+
+        # 模型推理
         >>> model = YOLO("yolo11n.pt")
         >>> results = model.predict("image.jpg")
+
+        # 模型训练、验证和导出
         >>> model.train(data="coco8.yaml", epochs=3)
+
+        # 模型验证
         >>> metrics = model.val()
+
+        # 模型导出
         >>> model.export(format="onnx")
     """
 
+    '''
+    构造函数:
+        该方法初始化模型的几个重要属性，并使其准备好进行训练、预测或导出等操作。
+    '''
     def __init__(
         self,
-        model: Union[str, Path, "Model"] = "yolo11n.pt",
-        task: str = None,
-        verbose: bool = False,
+        model: Union[str, Path, "Model"] = "yolo11n.pt", # 支持模型路径、模型名或已初始化的Model对象，默认yolo11n.pt
+        task: str = None, # 模型的具体任务。如果为 None，则会从配置中推断
+        verbose: bool = False, # 如果为 True，则在模型初始化和后续操作期间启用详细输出。
     ) -> None:
         """
         Initialize a new instance of the YOLO model class.
@@ -147,47 +168,54 @@ class Model(torch.nn.Module):
             >>> model = Model("hub_model", verbose=True)
         """
         if isinstance(model, Model):
-            self.__dict__ = model.__dict__  # accepts an already initialized Model
-            return
-        super().__init__()
-        self.callbacks = callbacks.get_default_callbacks()
-        self.predictor = None  # reuse predictor
-        self.model = None  # model object
-        self.trainer = None  # trainer object
-        self.ckpt = {}  # if loaded from *.pt
-        self.cfg = None  # if loaded from *.yaml
-        self.ckpt_path = None
-        self.overrides = {}  # overrides for trainer object
-        self.metrics = None  # validation/training metrics
-        self.session = None  # HUB session
-        self.task = task  # task type
-        self.model_name = None  # model name
+            self.__dict__ = model.__dict__  # 如果传入的model已经是Model对象,直接复制其所有属性
+            return # 拷贝构造函数
+
+        super().__init__() # 调用父类（torch.nn.Module）的初始化
+
+        self.callbacks = callbacks.get_default_callbacks() # callbacks(dict):模型运行期间各种事件的回调函数字典。
+        self.predictor = None  # predictor(BasePredictor):用于进行预测的预测器对象
+        self.model = None  # model(torch.nn.Module):底层 PyTorch 模型。
+        self.trainer = None  # trainer(BaseTrainer):用于训练模型的训练器对象
+        self.ckpt = {}  # ckpt(dict):如果模型是从 *.pt 文件加载的，则为检查点数据。
+        self.cfg = None  # cfg(str):如果模型是从 *.yaml 文件加载的，则为模型的配置。
+        self.ckpt_path = None  # ckpt_path(str):检查点文件的路径。
+        self.overrides = {}  # overrides(dict):模型配置的覆盖字典。
+        self.metrics = None  # metrics(dict):最新的训练/验证指标。
+        self.session = None  # session(HUBTrainingSession):Ultralytics HUB 会话（如果适用）。
+        self.task = task  # task(str):模型的目标任务类型。
+        self.model_name = None  # model_name(str):模型的名称。
+
+        # 将构造函数传入的model参数转为字符串并去除首尾空格
         model = str(model).strip()
 
         # Check if Ultralytics HUB model from https://hub.ultralytics.com
-        if self.is_hub_model(model):
-            from ultralytics.hub import HUBTrainingSession
+        if self.is_hub_model(model): # 如果是Ultralytics HUB模型
+            from ultralytics.hub import HUBTrainingSession # 延迟导入HUB会话类
 
             # Fetch model from HUB
-            checks.check_requirements("hub-sdk>=0.0.12")
-            session = HUBTrainingSession.create_session(model)
-            model = session.model_file
+            checks.check_requirements("hub-sdk>=0.0.12")       # 检查HUB SDK依赖
+            session = HUBTrainingSession.create_session(model) # 创建HUB会话，下载模型
+            model = session.model_file                         # 获取本地模型文件路径
             if session.train_args:  # training sent from HUB
-                self.session = session
+                self.session = session  # 如果有训练参数，保存会话
 
         # Check if Triton Server model
-        elif self.is_triton_model(model):
-            self.model_name = self.model = model
-            self.overrides["task"] = task or "detect"  # set `task=detect` if not explicitly set
-            return
+        elif self.is_triton_model(model): # 如果是Triton推理服务器模型
+            self.model_name = self.model = model # 直接设置模型名和模型
+            self.overrides["task"] = task or "detect"  # 任务类型默认detect
+            return # 结束初始化
 
         # Load or create new YOLO model
+        # 设置环境变量，避免PyTorch警告
         __import__("os").environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"  # to avoid deterministic warnings
-        if str(model).endswith((".yaml", ".yml")):
-            self._new(model, task=task, verbose=verbose)
+        if str(model).endswith((".yaml", ".yml")): # 如果是yaml配置文件
+            self._new(model, task=task, verbose=verbose)  # 新建模型
         else:
-            self._load(model, task=task)
+            self._load(model, task=task) # 像是.pt文件结尾则加载模型
 
+        # 删除父类的training属性，确保访问的是self.model.training,而不是父类的training属性
+        # Model 本身只是一个"封装器"或"管理器"，它管理着一个实际的 PyTorch 模型self.model
         # Delete super().training for accessing self.model.training
         del self.training
 
