@@ -1,16 +1,33 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+# Python 标准库，用于获取对象的信息（如函数签名、类结构等），常用于反射和动态分析
 import inspect
+
+# 标准库，面向对象的文件路径操作工具替代os.path，提供更方便的路径操作方法
 from pathlib import Path
+
+# 标准库，提供类型注解支持
 from typing import Any, Dict, List, Union
 
+# 科学计算库，常用于数组、矩阵运算
 import numpy as np
+
+# PyTorch 深度学习框架的主模块
 import torch
+
+# Pillow 图像处理库的核心类，用于打开、处理图片
 from PIL import Image
 
+# Ultralytics YOLO 项目的配置相关模块，包含任务到数据的映射、配置加载等
 from ultralytics.cfg import TASK2DATA, get_cfg, get_save_dir
+
+# Ultralytics YOLO 的推理结果封装类
 from ultralytics.engine.results import Results
+
+# YOLO 神经网络相关的任务工具，如权重加载、任务类型推断、模型配置加载等
 from ultralytics.nn.tasks import attempt_load_one_weight, guess_model_task, yaml_model_load
+
+# YOLO 项目通用工具模块，包含命令行参数、默认配置、日志、分布式训练相关、回调、检查等工具函数和常量
 from ultralytics.utils import (
     ARGV,
     ASSETS,
@@ -23,14 +40,35 @@ from ultralytics.utils import (
     checks,
 )
 
-
+# Model类继承了PyTorch 的模型封装类;
 class Model(torch.nn.Module):
     """
+    /** Model类的描述
+    用于实现 YOLO 模型的基类，统一了不同模型类型的 API。
+    此类为与 YOLO 模型相关的各种操作( 例如训练、验证、预测、导出和基准测试 )提供了一个通用接口
+    它支持不同类型的模型,包括从本地文件,Ultralytics HUB 或 Triton Server 加载的模型.
+    */
+
     A base class for implementing YOLO models, unifying APIs across different model types.
 
     This class provides a common interface for various operations related to YOLO models, such as training,
     validation, prediction, exporting, and benchmarking. It handles different types of models, including those
     loaded from local files, Ultralytics HUB, or Triton Server.
+
+    /** 类的成员变量
+    callbacks(dict)：模型运行期间各种事件的回调函数字典。
+    predictor(BasePredictor):用于进行预测的预测器对象。
+    model(torch.nn.Module):底层 PyTorch 模型。
+    trainer(BaseTrainer):用于训练模型的训练器对象。
+    ckpt(dict):如果模型是从 *.pt 文件加载的，则为检查点数据。
+    cfg(str):如果模型是从 *.yaml 文件加载的，则为模型的配置。
+    ckpt_path(str):检查点文件的路径。
+    overrides(dict):模型配置的覆盖字典。
+    metrics(dict):最新的训练/验证指标。
+    session(HUBTrainingSession):Ultralytics HUB 会话（如果适用）。
+    task(str):模型的目标任务类型。
+    model_name(str):模型的名称。
+    */
 
     Attributes:
         callbacks (dict): A dictionary of callback functions for various events during model operations.
