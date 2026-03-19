@@ -25,6 +25,7 @@ model = YOLO(str(model_path))
 image = Image.open(str(image_path))
 
 # 使用 YOLO 模型进行推理
+# 调用的是 YOLO类的 __call__方法,这个方法在父类Model中定义
 results = model(image)
 
 # 打印推理结果

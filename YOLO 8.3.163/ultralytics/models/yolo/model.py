@@ -3,9 +3,16 @@
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+# YOLO项目中用于加载推理数据源的函数。
 from ultralytics.data.build import load_inference_source
+
+# YOLO的基础模型类，所有模型的父类
 from ultralytics.engine.model import Model
+
+# 导入yolo模块，包含YOLO相关的子模块和工具。
 from ultralytics.models import yolo
+
+# 导入YOLO支持的各种任务模型类，包括分类、检测、姿态估计、分割、定向框、YOLOE等。
 from ultralytics.nn.tasks import (
     ClassificationModel,
     DetectionModel,
@@ -16,9 +23,13 @@ from ultralytics.nn.tasks import (
     YOLOEModel,
     YOLOESegModel,
 )
+# ROOT:项目根目录路径；YAML：用于加载YAML配置文件的工具。
 from ultralytics.utils import ROOT, YAML
 
 
+# 该类为YOLO系列目标检测模型的统一接口,YOLO类继承了Mode类u
+# 它会根据模型文件名自动切换到专用模型类型(如YOLOWorld或YOLOE),
+# 支持检测,分割,分类,姿态估计,定向框等多种视觉任务.
 class YOLO(Model):
     """
     YOLO (You Only Look Once) object detection model.
@@ -33,7 +44,10 @@ class YOLO(Model):
         overrides: Configuration overrides for the model.
 
     Methods:
+        // 构造函数,根据模型名称自动选择训练器
         __init__: Initialize a YOLO model with automatic type detection.
+
+        //将任务映射到其对应的模型、训练器、验证器和预测器类别。
         task_map: Map tasks to their corresponding model, trainer, validator, and predictor classes.
 
     Examples:
@@ -55,9 +69,14 @@ class YOLO(Model):
         (YOLOWorld or YOLOE) based on the model filename.
 
         Args:
+            // 模型名称或路径(默认'yolo11n.pt')，支持.pt和.yaml格式。
             model (str | Path): Model name or path to model file, i.e. 'yolo11n.pt', 'yolo11n.yaml'.
+            
+            // 任务类型(如'detect'、'segment'等)默认自动检测 (默认None)
             task (str, optional): YOLO task specification, i.e. 'detect', 'segment', 'classify', 'pose', 'obb'.
                 Defaults to auto-detection based on model.
+            
+            // 是否在加载模型时显示模型信息(默认False)
             verbose (bool): Display model info on load.
 
         Examples:
@@ -66,17 +85,35 @@ class YOLO(Model):
             >>> model = YOLO("yolo11n-seg.pt")  # load a pretrained YOLO11n segmentation model
         """
         path = Path(model if isinstance(model, (str, Path)) else "")
+        # 如果模型名包含-world且后缀为pt/yaml/yml,则切换为YOLOWorld模型
         if "-world" in path.stem and path.suffix in {".pt", ".yaml", ".yml"}:  # if YOLOWorld PyTorch model
             new_instance = YOLOWorld(path, verbose=verbose)
             self.__class__ = type(new_instance)
             self.__dict__ = new_instance.__dict__
+        # 如果模型名包含yoloe且后缀为pt/yaml/yml，则切换为YOLOE模型
         elif "yoloe" in path.stem and path.suffix in {".pt", ".yaml", ".yml"}:  # if YOLOE PyTorch model
             new_instance = YOLOE(path, task=task, verbose=verbose)
             self.__class__ = type(new_instance)
             self.__dict__ = new_instance.__dict__
         else:
+            # 默认初始化
             # Continue with default YOLO initialization
+            # 调用父类（即Model类）的构造函数（__init__方法），并把当前YOLO类的参数（model, task, verbose）传递给父类进行初始化
             super().__init__(model=model, task=task, verbose=verbose)
+            # 如果模型最后一层为RTDETR，则切换为RTDETR模型
+            # hasattr(内置函数)用于判断一个对象是否有某个属性
+            # self.model.model 是一个神经网络的层列表（如nn.ModuleList）。
+            # self.model.model[-1] 取出最后一层,_get_name() 是该层的一个方法，返回该层的类名（如 "RTDETRHead"）。
+            # "RTDETR" in ... 判断类名中是否包含 "RTDETR" 字样
+            '''
+            RTDETR(Real-Time DEtection TRansformer)是一种基于Transformer结构的实时目标检测模型。
+            简要说明:
+                RTDETR 由百度提出,结合了DETR(Detection Transformer)的高精度和YOLO等模型的高效率,专为实时目标检测设计。
+                它利用Transformer结构进行端到端的目标检测 ,省去了传统的锚框(anchor)设计,推理速度快,精度高。
+                RTDETR 适用于需要高效、实时检测的场景，比如视频流分析、自动驾驶等。
+                在YOLO代码中检测到模型最后一层为 RTDETR时,会自动切换到 RTDETR 专用的推理和训练流程,以获得更好的性能和兼容性。
+            '''
+            # yolov8n 最后一层是'Detect'
             if hasattr(self.model, "model") and "RTDETR" in self.model.model[-1]._get_name():  # if RTDETR head
                 from ultralytics import RTDETR
 
