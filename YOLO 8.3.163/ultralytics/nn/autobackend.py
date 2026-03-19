@@ -18,6 +18,14 @@ from ultralytics.utils import ARM64, IS_JETSON, LINUX, LOGGER, PYTHON_VERSION, R
 from ultralytics.utils.checks import check_requirements, check_suffix, check_version, check_yaml, is_rockchip
 from ultralytics.utils.downloads import attempt_download_asset, is_url
 
+'''
+核心功能包括：
+    - 自动识别模型格式和推理后端，支持多种深度学习框架和硬件平台。
+    - 加载模型权重,初始化推理环境,设置设备(CPU/GPU/TPU等)。
+    - 统一的 forward 方法，支持不同后端的推理调用，返回标准化的输出。
+    - 支持模型预热(warmup)、半精度(FP16)推理、批量推理等高级特性。
+    - 处理类别名称、模型元数据、输入输出格式转换等细节。
+'''
 
 def check_class_names(names: Union[List, Dict]) -> Dict[int, str]:
     """
