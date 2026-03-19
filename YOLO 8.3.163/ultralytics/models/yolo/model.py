@@ -1,6 +1,9 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+# 标准库，面向对象的文件路径操作工具替代os.path，提供更方便的路径操作方法
 from pathlib import Path
+
+# Python类型注解，提升代码可读性和类型检查。
 from typing import Any, Dict, List, Optional, Union
 
 # YOLO项目中用于加载推理数据源的函数。
@@ -39,7 +42,7 @@ class YOLO(Model):
     (YOLOWorld or YOLOE) based on the model filename. It supports various computer vision tasks including object
     detection, segmentation, classification, pose estimation, and oriented bounding box detection.
 
-    Attributes:
+    Attributes: 成员变量
         model: The loaded YOLO model instance.
         task: The task type (detect, segment, classify, pose, obb).
         overrides: Configuration overrides for the model.
