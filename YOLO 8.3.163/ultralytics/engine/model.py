@@ -219,12 +219,19 @@ class Model(torch.nn.Module):
         # Delete super().training for accessing self.model.training
         del self.training
 
+    '''
+    __call__: predict 方法的别名,使模型实例可被调用.
+    让YOLO模型对象可以像函数一样直接调用
+    例如:
+    results = model(image) 和 results = model.predict(image) 等价
+    '''
     def __call__(
         self,
+        # 输入数据源，可以是图片路径、URL、PIL对象、numpy数组、torch张量等
         source: Union[str, Path, int, Image.Image, list, tuple, np.ndarray, torch.Tensor] = None,
-        stream: bool = False,
-        **kwargs: Any,
-    ) -> list:
+        stream: bool = False, # 是否以流模式处理(如视频流)默认否
+        **kwargs: Any, # 其他预测参数
+    ) -> list: # 返回预测结果列表，每个结果是一个Results对象
         """
         Alias for the predict method, enabling the model instance to be callable for predictions.
 
