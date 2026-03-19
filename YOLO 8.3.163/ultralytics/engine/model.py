@@ -566,12 +566,19 @@ class Model(torch.nn.Module):
             kwargs["embed"] = [len(self.model.model) - 2]  # embed second-to-last layer if no indices passed
         return self.predict(source, stream, **kwargs)
 
+
+    '''
+    predict: 执行目标检测预测
+        使用 YOLO 模型对给定的图像源进行预测.此方法简化了预测过程,允许通过关键字参数进行各种配置.
+        它支持使用自定义预测器或默认预测器方法进行预测.该方法可处理不同类型的图像源,并可在流模式下运行.
+    '''
     def predict(
         self,
+        # 用于预测的图像的来源
         source: Union[str, Path, int, Image.Image, list, tuple, np.ndarray, torch.Tensor] = None,
-        stream: bool = False,
-        predictor=None,
-        **kwargs: Any,
+        stream: bool = False, # 如果为 True，则将输入源视为连续流进行预测
+        predictor=None, # :BasePredictor 用于进行预测的自定义预测器类的实例
+        **kwargs: Any, # 用于配置预测过程的其他关键字参数
     ) -> List[Results]:
         """
         Perform predictions on the given image source using the YOLO model.
@@ -604,16 +611,21 @@ class Model(torch.nn.Module):
             - The method sets up a new predictor if not already present and updates its arguments with each call.
             - For SAM-type models, 'prompts' can be passed as a keyword argument.
         """
-        if source is None:
+        if source is None:  # 如果没有传入source,则使用默认的ASSETS路径,并发出警告
             source = "https://ultralytics.com/images/boats.jpg" if self.task == "obb" else ASSETS
             LOGGER.warning(f"'source' is missing. Using 'source={source}'.")
 
         is_cli = (ARGV[0].endswith("yolo") or ARGV[0].endswith("ultralytics")) and any(
             x in ARGV for x in ("predict", "track", "mode=predict", "mode=track")
-        )
+        )  # 判断是否命令行调用(用于保存结果等)
 
+        # 方法默认参数
         custom = {"conf": 0.25, "batch": 1, "save": is_cli, "mode": "predict", "rect": True}  # method defaults
+        
+        # 合并参数,优先级:用户 > 方法默认 > self.overrides; 参数设定优先级
         args = {**self.overrides, **custom, **kwargs}  # highest priority args on the right
+        
+        # 针对SAM模型的提示词参数
         prompts = args.pop("prompts", None)  # for SAM-type models
 
         if not self.predictor:
