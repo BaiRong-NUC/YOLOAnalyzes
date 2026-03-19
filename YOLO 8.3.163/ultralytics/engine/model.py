@@ -628,9 +628,11 @@ class Model(torch.nn.Module):
         # 针对SAM模型的提示词参数
         prompts = args.pop("prompts", None)  # for SAM-type models
 
+        # 如果还没有初始化predictor
         if not self.predictor:
+            # 构造predictor实例,优先使用传入的predictor参数,如果没有则使用智能加载的默认predictor
             self.predictor = (predictor or self._smart_load("predictor"))(overrides=args, _callbacks=self.callbacks)
-            self.predictor.setup_model(model=self.model, verbose=is_cli)
+            self.predictor.setup_model(model=self.model, verbose=is_cli) # 设置模型
         else:  # only update args if predictor is already setup
             self.predictor.args = get_cfg(self.predictor.args, args)
             if "project" in args or "name" in args:
