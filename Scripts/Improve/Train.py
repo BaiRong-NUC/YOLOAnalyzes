@@ -14,9 +14,9 @@ from ultralytics import YOLO
 
 # ── 路径配置（相对于项目根目录）────────────────────────────────
 DATA_YAML = ROOT / "Data" / "Vehicles" / "data.yaml"
-# WEIGHTS = LOCAL_YOLO_SRC / "ultralytics" / "cfg" / "models" / "v8" / "yolov8.yaml"
+WEIGHTS = LOCAL_YOLO_SRC / "ultralytics" / "cfg" / "models" / "v8" / "yolov8.yaml"
 # WEIGHTS = LOCAL_YOLO_SRC / "ultralytics" / "cfg" / "models" / "v8" / "yolov8_vif.yaml"
-WEIGHTS = ROOT / "Model" / "YOLOv8" / "yolo8n" / "yolov8n.pt"
+# WEIGHTS = ROOT / "Model" / "YOLOv8" / "yolo8n" / "yolov8n.pt"
 OUTPUT_DIR = ROOT / "Scripts" / "Improve" / "Output"
 
 
@@ -72,7 +72,7 @@ def train():
     # ── 训练参数 ────────────────────────────────────────────────
     results = model.train(
         data=str(DATA_YAML),  # 数据集 yaml
-        epochs=100,  # 训练轮次
+        epochs=30,  # 训练轮次
         imgsz=640,  # 输入图像尺寸
         batch=batch_size,  # 批大小（自动适配显存）
         device=device,  # GPU/CPU
