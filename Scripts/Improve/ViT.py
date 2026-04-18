@@ -173,7 +173,7 @@ class VisionTransformer(nn.Module):
 if __name__ == "__main__":
     batch_size = 2
     channels = 1024
-    model = VisionTransformer(20, 2, 512, 10, 256, 8, 4, 256, 0.1)
-    x = torch.randn(2, 512, 20, 20)
+    model = VisionTransformer(20, 2, 256, 10, 256, 8, 4, 256, 0.1)
+    x = torch.randn(2, 256, 20, 20)
     output = model(x)
     print(output.shape)

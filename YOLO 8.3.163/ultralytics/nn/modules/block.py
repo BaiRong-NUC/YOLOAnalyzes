@@ -52,6 +52,7 @@ __all__ = (
     "PSA",
     "SCDown",
     "TorchVision",
+    "VisionTransformer",
 )
 
 
@@ -78,7 +79,9 @@ class DFL(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Apply the DFL module to input tensor and return transformed output."""
         b, _, a = x.shape  # batch, channels, anchors
-        return self.conv(x.view(b, 4, self.c1, a).transpose(2, 1).softmax(1)).view(b, 4, a)
+        return self.conv(x.view(b, 4, self.c1, a).transpose(2, 1).softmax(1)).view(
+            b, 4, a
+        )
         # return self.conv(x.view(b, self.c1, 4, a).softmax(1)).view(b, 4, a)
 
 
@@ -96,7 +99,9 @@ class Proto(nn.Module):
         """
         super().__init__()
         self.cv1 = Conv(c1, c_, k=3)
-        self.upsample = nn.ConvTranspose2d(c_, c_, 2, 2, 0, bias=True)  # nn.Upsample(scale_factor=2, mode='nearest')
+        self.upsample = nn.ConvTranspose2d(
+            c_, c_, 2, 2, 0, bias=True
+        )  # nn.Upsample(scale_factor=2, mode='nearest')
         self.cv2 = Conv(c_, c_, k=3)
         self.cv3 = Conv(c_, c2)
 
@@ -176,7 +181,9 @@ class HGBlock(nn.Module):
         """
         super().__init__()
         block = LightConv if lightconv else Conv
-        self.m = nn.ModuleList(block(c1 if i == 0 else cm, cm, k=k, act=act) for i in range(n))
+        self.m = nn.ModuleList(
+            block(c1 if i == 0 else cm, cm, k=k, act=act) for i in range(n)
+        )
         self.sc = Conv(c1 + n * cm, c2 // 2, 1, 1, act=act)  # squeeze conv
         self.ec = Conv(c2 // 2, c2, 1, 1, act=act)  # excitation conv
         self.add = shortcut and c1 == c2
@@ -205,7 +212,9 @@ class SPP(nn.Module):
         c_ = c1 // 2  # hidden channels
         self.cv1 = Conv(c1, c_, 1, 1)
         self.cv2 = Conv(c_ * (len(k) + 1), c2, 1, 1)
-        self.m = nn.ModuleList([nn.MaxPool2d(kernel_size=x, stride=1, padding=x // 2) for x in k])
+        self.m = nn.ModuleList(
+            [nn.MaxPool2d(kernel_size=x, stride=1, padding=x // 2) for x in k]
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass of the SPP layer, performing spatial pyramid pooling."""
@@ -266,7 +275,15 @@ class C1(nn.Module):
 class C2(nn.Module):
     """CSP Bottleneck with 2 convolutions."""
 
-    def __init__(self, c1: int, c2: int, n: int = 1, shortcut: bool = True, g: int = 1, e: float = 0.5):
+    def __init__(
+        self,
+        c1: int,
+        c2: int,
+        n: int = 1,
+        shortcut: bool = True,
+        g: int = 1,
+        e: float = 0.5,
+    ):
         """
         Initialize a CSP Bottleneck with 2 convolutions.
 
@@ -283,7 +300,12 @@ class C2(nn.Module):
         self.cv1 = Conv(c1, 2 * self.c, 1, 1)
         self.cv2 = Conv(2 * self.c, c2, 1)  # optional act=FReLU(c2)
         # self.attention = ChannelAttention(2 * self.c)  # or SpatialAttention()
-        self.m = nn.Sequential(*(Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0) for _ in range(n)))
+        self.m = nn.Sequential(
+            *(
+                Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0)
+                for _ in range(n)
+            )
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through the CSP bottleneck with 2 convolutions."""
@@ -294,7 +316,15 @@ class C2(nn.Module):
 class C2f(nn.Module):
     """Faster Implementation of CSP Bottleneck with 2 convolutions."""
 
-    def __init__(self, c1: int, c2: int, n: int = 1, shortcut: bool = False, g: int = 1, e: float = 0.5):
+    def __init__(
+        self,
+        c1: int,
+        c2: int,
+        n: int = 1,
+        shortcut: bool = False,
+        g: int = 1,
+        e: float = 0.5,
+    ):
         """
         Initialize a CSP bottleneck with 2 convolutions.
 
@@ -310,7 +340,10 @@ class C2f(nn.Module):
         self.c = int(c2 * e)  # hidden channels
         self.cv1 = Conv(c1, 2 * self.c, 1, 1)
         self.cv2 = Conv((2 + n) * self.c, c2, 1)  # optional act=FReLU(c2)
-        self.m = nn.ModuleList(Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0) for _ in range(n))
+        self.m = nn.ModuleList(
+            Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0)
+            for _ in range(n)
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through C2f layer."""
@@ -329,7 +362,15 @@ class C2f(nn.Module):
 class C3(nn.Module):
     """CSP Bottleneck with 3 convolutions."""
 
-    def __init__(self, c1: int, c2: int, n: int = 1, shortcut: bool = True, g: int = 1, e: float = 0.5):
+    def __init__(
+        self,
+        c1: int,
+        c2: int,
+        n: int = 1,
+        shortcut: bool = True,
+        g: int = 1,
+        e: float = 0.5,
+    ):
         """
         Initialize the CSP Bottleneck with 3 convolutions.
 
@@ -346,7 +387,12 @@ class C3(nn.Module):
         self.cv1 = Conv(c1, c_, 1, 1)
         self.cv2 = Conv(c1, c_, 1, 1)
         self.cv3 = Conv(2 * c_, c2, 1)  # optional act=FReLU(c2)
-        self.m = nn.Sequential(*(Bottleneck(c_, c_, shortcut, g, k=((1, 1), (3, 3)), e=1.0) for _ in range(n)))
+        self.m = nn.Sequential(
+            *(
+                Bottleneck(c_, c_, shortcut, g, k=((1, 1), (3, 3)), e=1.0)
+                for _ in range(n)
+            )
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through the CSP bottleneck with 3 convolutions."""
@@ -356,7 +402,15 @@ class C3(nn.Module):
 class C3x(C3):
     """C3 module with cross-convolutions."""
 
-    def __init__(self, c1: int, c2: int, n: int = 1, shortcut: bool = True, g: int = 1, e: float = 0.5):
+    def __init__(
+        self,
+        c1: int,
+        c2: int,
+        n: int = 1,
+        shortcut: bool = True,
+        g: int = 1,
+        e: float = 0.5,
+    ):
         """
         Initialize C3 module with cross-convolutions.
 
@@ -370,7 +424,12 @@ class C3x(C3):
         """
         super().__init__(c1, c2, n, shortcut, g, e)
         self.c_ = int(c2 * e)
-        self.m = nn.Sequential(*(Bottleneck(self.c_, self.c_, shortcut, g, k=((1, 3), (3, 1)), e=1) for _ in range(n)))
+        self.m = nn.Sequential(
+            *(
+                Bottleneck(self.c_, self.c_, shortcut, g, k=((1, 3), (3, 1)), e=1)
+                for _ in range(n)
+            )
+        )
 
 
 class RepC3(nn.Module):
@@ -401,7 +460,15 @@ class RepC3(nn.Module):
 class C3TR(C3):
     """C3 module with TransformerBlock()."""
 
-    def __init__(self, c1: int, c2: int, n: int = 1, shortcut: bool = True, g: int = 1, e: float = 0.5):
+    def __init__(
+        self,
+        c1: int,
+        c2: int,
+        n: int = 1,
+        shortcut: bool = True,
+        g: int = 1,
+        e: float = 0.5,
+    ):
         """
         Initialize C3 module with TransformerBlock.
 
@@ -421,7 +488,15 @@ class C3TR(C3):
 class C3Ghost(C3):
     """C3 module with GhostBottleneck()."""
 
-    def __init__(self, c1: int, c2: int, n: int = 1, shortcut: bool = True, g: int = 1, e: float = 0.5):
+    def __init__(
+        self,
+        c1: int,
+        c2: int,
+        n: int = 1,
+        shortcut: bool = True,
+        g: int = 1,
+        e: float = 0.5,
+    ):
         """
         Initialize C3 module with GhostBottleneck.
 
@@ -459,7 +534,11 @@ class GhostBottleneck(nn.Module):
             GhostConv(c_, c2, 1, 1, act=False),  # pw-linear
         )
         self.shortcut = (
-            nn.Sequential(DWConv(c1, c1, k, s, act=False), Conv(c1, c2, 1, 1, act=False)) if s == 2 else nn.Identity()
+            nn.Sequential(
+                DWConv(c1, c1, k, s, act=False), Conv(c1, c2, 1, 1, act=False)
+            )
+            if s == 2
+            else nn.Identity()
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -471,7 +550,13 @@ class Bottleneck(nn.Module):
     """Standard bottleneck."""
 
     def __init__(
-        self, c1: int, c2: int, shortcut: bool = True, g: int = 1, k: Tuple[int, int] = (3, 3), e: float = 0.5
+        self,
+        c1: int,
+        c2: int,
+        shortcut: bool = True,
+        g: int = 1,
+        k: Tuple[int, int] = (3, 3),
+        e: float = 0.5,
     ):
         """
         Initialize a standard bottleneck module.
@@ -498,7 +583,15 @@ class Bottleneck(nn.Module):
 class BottleneckCSP(nn.Module):
     """CSP Bottleneck https://github.com/WongKinYiu/CrossStagePartialNetworks."""
 
-    def __init__(self, c1: int, c2: int, n: int = 1, shortcut: bool = True, g: int = 1, e: float = 0.5):
+    def __init__(
+        self,
+        c1: int,
+        c2: int,
+        n: int = 1,
+        shortcut: bool = True,
+        g: int = 1,
+        e: float = 0.5,
+    ):
         """
         Initialize CSP Bottleneck.
 
@@ -518,7 +611,9 @@ class BottleneckCSP(nn.Module):
         self.cv4 = Conv(2 * c_, c2, 1, 1)
         self.bn = nn.BatchNorm2d(2 * c_)  # applied to cat(cv2, cv3)
         self.act = nn.SiLU()
-        self.m = nn.Sequential(*(Bottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n)))
+        self.m = nn.Sequential(
+            *(Bottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n))
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Apply CSP bottleneck with 3 convolutions."""
@@ -545,7 +640,11 @@ class ResNetBlock(nn.Module):
         self.cv1 = Conv(c1, c2, k=1, s=1, act=True)
         self.cv2 = Conv(c2, c2, k=3, s=s, p=1, act=True)
         self.cv3 = Conv(c2, c3, k=1, act=False)
-        self.shortcut = nn.Sequential(Conv(c1, c3, k=1, s=s, act=False)) if s != 1 or c1 != c3 else nn.Identity()
+        self.shortcut = (
+            nn.Sequential(Conv(c1, c3, k=1, s=s, act=False))
+            if s != 1 or c1 != c3
+            else nn.Identity()
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through the ResNet block."""
@@ -555,7 +654,15 @@ class ResNetBlock(nn.Module):
 class ResNetLayer(nn.Module):
     """ResNet layer with multiple ResNet blocks."""
 
-    def __init__(self, c1: int, c2: int, s: int = 1, is_first: bool = False, n: int = 1, e: int = 4):
+    def __init__(
+        self,
+        c1: int,
+        c2: int,
+        s: int = 1,
+        is_first: bool = False,
+        n: int = 1,
+        e: int = 4,
+    ):
         """
         Initialize ResNet layer.
 
@@ -572,7 +679,8 @@ class ResNetLayer(nn.Module):
 
         if self.is_first:
             self.layer = nn.Sequential(
-                Conv(c1, c2, k=7, s=2, p=3, act=True), nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+                Conv(c1, c2, k=7, s=2, p=3, act=True),
+                nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
             )
         else:
             blocks = [ResNetBlock(c1, c2, s, e=e)]
@@ -587,7 +695,15 @@ class ResNetLayer(nn.Module):
 class MaxSigmoidAttnBlock(nn.Module):
     """Max Sigmoid attention block."""
 
-    def __init__(self, c1: int, c2: int, nh: int = 1, ec: int = 128, gc: int = 512, scale: bool = False):
+    def __init__(
+        self,
+        c1: int,
+        c2: int,
+        nh: int = 1,
+        ec: int = 128,
+        gc: int = 512,
+        scale: bool = False,
+    ):
         """
         Initialize MaxSigmoidAttnBlock.
 
@@ -671,7 +787,10 @@ class C2fAttn(nn.Module):
         self.c = int(c2 * e)  # hidden channels
         self.cv1 = Conv(c1, 2 * self.c, 1, 1)
         self.cv2 = Conv((3 + n) * self.c, c2, 1)  # optional act=FReLU(c2)
-        self.m = nn.ModuleList(Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0) for _ in range(n))
+        self.m = nn.ModuleList(
+            Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0)
+            for _ in range(n)
+        )
         self.attn = MaxSigmoidAttnBlock(self.c, self.c, gc=gc, ec=ec, nh=nh)
 
     def forward(self, x: torch.Tensor, guide: torch.Tensor) -> torch.Tensor:
@@ -711,7 +830,13 @@ class ImagePoolingAttn(nn.Module):
     """ImagePoolingAttn: Enhance the text embeddings with image-aware information."""
 
     def __init__(
-        self, ec: int = 256, ch: Tuple[int, ...] = (), ct: int = 512, nh: int = 8, k: int = 3, scale: bool = False
+        self,
+        ec: int = 256,
+        ch: Tuple[int, ...] = (),
+        ct: int = 512,
+        nh: int = 8,
+        k: int = 3,
+        scale: bool = False,
     ):
         """
         Initialize ImagePoolingAttn module.
@@ -731,8 +856,12 @@ class ImagePoolingAttn(nn.Module):
         self.key = nn.Sequential(nn.LayerNorm(ec), nn.Linear(ec, ec))
         self.value = nn.Sequential(nn.LayerNorm(ec), nn.Linear(ec, ec))
         self.proj = nn.Linear(ec, ct)
-        self.scale = nn.Parameter(torch.tensor([0.0]), requires_grad=True) if scale else 1.0
-        self.projections = nn.ModuleList([nn.Conv2d(in_channels, ec, kernel_size=1) for in_channels in ch])
+        self.scale = (
+            nn.Parameter(torch.tensor([0.0]), requires_grad=True) if scale else 1.0
+        )
+        self.projections = nn.ModuleList(
+            [nn.Conv2d(in_channels, ec, kernel_size=1) for in_channels in ch]
+        )
         self.im_pools = nn.ModuleList([nn.AdaptiveMaxPool2d((k, k)) for _ in range(nf)])
         self.ec = ec
         self.nh = nh
@@ -754,7 +883,10 @@ class ImagePoolingAttn(nn.Module):
         bs = x[0].shape[0]
         assert len(x) == self.nf
         num_patches = self.k**2
-        x = [pool(proj(x)).view(bs, -1, num_patches) for (x, proj, pool) in zip(x, self.projections, self.im_pools)]
+        x = [
+            pool(proj(x)).view(bs, -1, num_patches)
+            for (x, proj, pool) in zip(x, self.projections, self.im_pools)
+        ]
         x = torch.cat(x, dim=-1).transpose(1, 2)
         q = self.query(text)
         k = self.key(x)
@@ -856,7 +988,13 @@ class RepBottleneck(Bottleneck):
     """Rep bottleneck."""
 
     def __init__(
-        self, c1: int, c2: int, shortcut: bool = True, g: int = 1, k: Tuple[int, int] = (3, 3), e: float = 0.5
+        self,
+        c1: int,
+        c2: int,
+        shortcut: bool = True,
+        g: int = 1,
+        k: Tuple[int, int] = (3, 3),
+        e: float = 0.5,
     ):
         """
         Initialize RepBottleneck.
@@ -877,7 +1015,15 @@ class RepBottleneck(Bottleneck):
 class RepCSP(C3):
     """Repeatable Cross Stage Partial Network (RepCSP) module for efficient feature extraction."""
 
-    def __init__(self, c1: int, c2: int, n: int = 1, shortcut: bool = True, g: int = 1, e: float = 0.5):
+    def __init__(
+        self,
+        c1: int,
+        c2: int,
+        n: int = 1,
+        shortcut: bool = True,
+        g: int = 1,
+        e: float = 0.5,
+    ):
         """
         Initialize RepCSP layer.
 
@@ -891,7 +1037,9 @@ class RepCSP(C3):
         """
         super().__init__(c1, c2, n, shortcut, g, e)
         c_ = int(c2 * e)  # hidden channels
-        self.m = nn.Sequential(*(RepBottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n)))
+        self.m = nn.Sequential(
+            *(RepBottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n))
+        )
 
 
 class RepNCSPELAN4(nn.Module):
@@ -1026,7 +1174,15 @@ class SPPELAN(nn.Module):
 class CBLinear(nn.Module):
     """CBLinear."""
 
-    def __init__(self, c1: int, c2s: List[int], k: int = 1, s: int = 1, p: Optional[int] = None, g: int = 1):
+    def __init__(
+        self,
+        c1: int,
+        c2s: List[int],
+        k: int = 1,
+        s: int = 1,
+        p: Optional[int] = None,
+        g: int = 1,
+    ):
         """
         Initialize CBLinear module.
 
@@ -1071,14 +1227,25 @@ class CBFuse(nn.Module):
             (torch.Tensor): Fused output tensor.
         """
         target_size = xs[-1].shape[2:]
-        res = [F.interpolate(x[self.idx[i]], size=target_size, mode="nearest") for i, x in enumerate(xs[:-1])]
+        res = [
+            F.interpolate(x[self.idx[i]], size=target_size, mode="nearest")
+            for i, x in enumerate(xs[:-1])
+        ]
         return torch.sum(torch.stack(res + xs[-1:]), dim=0)
 
 
 class C3f(nn.Module):
     """Faster Implementation of CSP Bottleneck with 2 convolutions."""
 
-    def __init__(self, c1: int, c2: int, n: int = 1, shortcut: bool = False, g: int = 1, e: float = 0.5):
+    def __init__(
+        self,
+        c1: int,
+        c2: int,
+        n: int = 1,
+        shortcut: bool = False,
+        g: int = 1,
+        e: float = 0.5,
+    ):
         """
         Initialize CSP bottleneck layer with two convolutions.
 
@@ -1095,7 +1262,9 @@ class C3f(nn.Module):
         self.cv1 = Conv(c1, c_, 1, 1)
         self.cv2 = Conv(c1, c_, 1, 1)
         self.cv3 = Conv((2 + n) * c_, c2, 1)  # optional act=FReLU(c2)
-        self.m = nn.ModuleList(Bottleneck(c_, c_, shortcut, g, k=((3, 3), (3, 3)), e=1.0) for _ in range(n))
+        self.m = nn.ModuleList(
+            Bottleneck(c_, c_, shortcut, g, k=((3, 3), (3, 3)), e=1.0) for _ in range(n)
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through C3f layer."""
@@ -1108,7 +1277,14 @@ class C3k2(C2f):
     """Faster Implementation of CSP Bottleneck with 2 convolutions."""
 
     def __init__(
-        self, c1: int, c2: int, n: int = 1, c3k: bool = False, e: float = 0.5, g: int = 1, shortcut: bool = True
+        self,
+        c1: int,
+        c2: int,
+        n: int = 1,
+        c3k: bool = False,
+        e: float = 0.5,
+        g: int = 1,
+        shortcut: bool = True,
     ):
         """
         Initialize C3k2 module.
@@ -1124,14 +1300,28 @@ class C3k2(C2f):
         """
         super().__init__(c1, c2, n, shortcut, g, e)
         self.m = nn.ModuleList(
-            C3k(self.c, self.c, 2, shortcut, g) if c3k else Bottleneck(self.c, self.c, shortcut, g) for _ in range(n)
+            (
+                C3k(self.c, self.c, 2, shortcut, g)
+                if c3k
+                else Bottleneck(self.c, self.c, shortcut, g)
+            )
+            for _ in range(n)
         )
 
 
 class C3k(C3):
     """C3k is a CSP bottleneck module with customizable kernel sizes for feature extraction in neural networks."""
 
-    def __init__(self, c1: int, c2: int, n: int = 1, shortcut: bool = True, g: int = 1, e: float = 0.5, k: int = 3):
+    def __init__(
+        self,
+        c1: int,
+        c2: int,
+        n: int = 1,
+        shortcut: bool = True,
+        g: int = 1,
+        e: float = 0.5,
+        k: int = 3,
+    ):
         """
         Initialize C3k module.
 
@@ -1147,7 +1337,9 @@ class C3k(C3):
         super().__init__(c1, c2, n, shortcut, g, e)
         c_ = int(c2 * e)  # hidden channels
         # self.m = nn.Sequential(*(RepBottleneck(c_, c_, shortcut, g, k=(k, k), e=1.0) for _ in range(n)))
-        self.m = nn.Sequential(*(Bottleneck(c_, c_, shortcut, g, k=(k, k), e=1.0) for _ in range(n)))
+        self.m = nn.Sequential(
+            *(Bottleneck(c_, c_, shortcut, g, k=(k, k), e=1.0) for _ in range(n))
+        )
 
 
 class RepVGGDW(torch.nn.Module):
@@ -1229,7 +1421,9 @@ class CIB(nn.Module):
         lk (bool, optional): Whether to use RepVGGDW for the third convolutional layer. Defaults to False.
     """
 
-    def __init__(self, c1: int, c2: int, shortcut: bool = True, e: float = 0.5, lk: bool = False):
+    def __init__(
+        self, c1: int, c2: int, shortcut: bool = True, e: float = 0.5, lk: bool = False
+    ):
         """
         Initialize the CIB module.
 
@@ -1280,7 +1474,14 @@ class C2fCIB(C2f):
     """
 
     def __init__(
-        self, c1: int, c2: int, n: int = 1, shortcut: bool = False, lk: bool = False, g: int = 1, e: float = 0.5
+        self,
+        c1: int,
+        c2: int,
+        n: int = 1,
+        shortcut: bool = False,
+        lk: bool = False,
+        g: int = 1,
+        e: float = 0.5,
     ):
         """
         Initialize C2fCIB module.
@@ -1295,7 +1496,9 @@ class C2fCIB(C2f):
             e (float): Expansion ratio.
         """
         super().__init__(c1, c2, n, shortcut, g, e)
-        self.m = nn.ModuleList(CIB(self.c, self.c, shortcut, e=1.0, lk=lk) for _ in range(n))
+        self.m = nn.ModuleList(
+            CIB(self.c, self.c, shortcut, e=1.0, lk=lk) for _ in range(n)
+        )
 
 
 class Attention(nn.Module):
@@ -1350,13 +1553,15 @@ class Attention(nn.Module):
         B, C, H, W = x.shape
         N = H * W
         qkv = self.qkv(x)
-        q, k, v = qkv.view(B, self.num_heads, self.key_dim * 2 + self.head_dim, N).split(
-            [self.key_dim, self.key_dim, self.head_dim], dim=2
-        )
+        q, k, v = qkv.view(
+            B, self.num_heads, self.key_dim * 2 + self.head_dim, N
+        ).split([self.key_dim, self.key_dim, self.head_dim], dim=2)
 
         attn = (q.transpose(-2, -1) @ k) * self.scale
         attn = attn.softmax(dim=-1)
-        x = (v @ attn.transpose(-2, -1)).view(B, C, H, W) + self.pe(v.reshape(B, C, H, W))
+        x = (v @ attn.transpose(-2, -1)).view(B, C, H, W) + self.pe(
+            v.reshape(B, C, H, W)
+        )
         x = self.proj(x)
         return x
 
@@ -1383,7 +1588,9 @@ class PSABlock(nn.Module):
         >>> output_tensor = psablock(input_tensor)
     """
 
-    def __init__(self, c: int, attn_ratio: float = 0.5, num_heads: int = 4, shortcut: bool = True) -> None:
+    def __init__(
+        self, c: int, attn_ratio: float = 0.5, num_heads: int = 4, shortcut: bool = True
+    ) -> None:
         """
         Initialize the PSABlock.
 
@@ -1454,7 +1661,9 @@ class PSA(nn.Module):
         self.cv2 = Conv(2 * self.c, c1, 1)
 
         self.attn = Attention(self.c, attn_ratio=0.5, num_heads=self.c // 64)
-        self.ffn = nn.Sequential(Conv(self.c, self.c * 2, 1), Conv(self.c * 2, self.c, 1, act=False))
+        self.ffn = nn.Sequential(
+            Conv(self.c, self.c * 2, 1), Conv(self.c * 2, self.c, 1, act=False)
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -1513,7 +1722,12 @@ class C2PSA(nn.Module):
         self.cv1 = Conv(c1, 2 * self.c, 1, 1)
         self.cv2 = Conv(2 * self.c, c1, 1)
 
-        self.m = nn.Sequential(*(PSABlock(self.c, attn_ratio=0.5, num_heads=self.c // 64) for _ in range(n)))
+        self.m = nn.Sequential(
+            *(
+                PSABlock(self.c, attn_ratio=0.5, num_heads=self.c // 64)
+                for _ in range(n)
+            )
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -1567,7 +1781,9 @@ class C2fPSA(C2f):
         """
         assert c1 == c2
         super().__init__(c1, c2, n=n, e=e)
-        self.m = nn.ModuleList(PSABlock(self.c, attn_ratio=0.5, num_heads=self.c // 64) for _ in range(n))
+        self.m = nn.ModuleList(
+            PSABlock(self.c, attn_ratio=0.5, num_heads=self.c // 64) for _ in range(n)
+        )
 
 
 class SCDown(nn.Module):
@@ -1639,7 +1855,12 @@ class TorchVision(nn.Module):
     """
 
     def __init__(
-        self, model: str, weights: str = "DEFAULT", unwrap: bool = True, truncate: int = 2, split: bool = False
+        self,
+        model: str,
+        weights: str = "DEFAULT",
+        unwrap: bool = True,
+        truncate: int = 2,
+        split: bool = False,
     ):
         """
         Load the model and weights from torchvision.
@@ -1660,7 +1881,9 @@ class TorchVision(nn.Module):
             self.m = torchvision.models.__dict__[model](pretrained=bool(weights))
         if unwrap:
             layers = list(self.m.children())
-            if isinstance(layers[0], nn.Sequential):  # Second-level for some models like EfficientNet, Swin
+            if isinstance(
+                layers[0], nn.Sequential
+            ):  # Second-level for some models like EfficientNet, Swin
                 layers = [*list(layers[0].children()), *layers[1:]]
             self.m = nn.Sequential(*(layers[:-truncate] if truncate else layers))
             self.split = split
@@ -1810,7 +2033,9 @@ class ABlock(nn.Module):
 
         self.attn = AAttn(dim, num_heads=num_heads, area=area)
         mlp_hidden_dim = int(dim * mlp_ratio)
-        self.mlp = nn.Sequential(Conv(dim, mlp_hidden_dim, 1), Conv(mlp_hidden_dim, dim, 1, act=False))
+        self.mlp = nn.Sequential(
+            Conv(dim, mlp_hidden_dim, 1), Conv(mlp_hidden_dim, dim, 1, act=False)
+        )
 
         self.apply(self._init_weights)
 
@@ -1899,11 +2124,19 @@ class A2C2f(nn.Module):
         self.cv1 = Conv(c1, c_, 1, 1)
         self.cv2 = Conv((1 + n) * c_, c2, 1)
 
-        self.gamma = nn.Parameter(0.01 * torch.ones(c2), requires_grad=True) if a2 and residual else None
+        self.gamma = (
+            nn.Parameter(0.01 * torch.ones(c2), requires_grad=True)
+            if a2 and residual
+            else None
+        )
         self.m = nn.ModuleList(
-            nn.Sequential(*(ABlock(c_, c_ // 32, mlp_ratio, area) for _ in range(2)))
-            if a2
-            else C3k(c_, c_, 2, shortcut, g)
+            (
+                nn.Sequential(
+                    *(ABlock(c_, c_ // 32, mlp_ratio, area) for _ in range(2))
+                )
+                if a2
+                else C3k(c_, c_, 2, shortcut, g)
+            )
             for _ in range(n)
         )
 
@@ -1986,13 +2219,18 @@ class SAVPE(nn.Module):
         super().__init__()
         self.cv1 = nn.ModuleList(
             nn.Sequential(
-                Conv(x, c3, 3), Conv(c3, c3, 3), nn.Upsample(scale_factor=i * 2) if i in {1, 2} else nn.Identity()
+                Conv(x, c3, 3),
+                Conv(c3, c3, 3),
+                nn.Upsample(scale_factor=i * 2) if i in {1, 2} else nn.Identity(),
             )
             for i, x in enumerate(ch)
         )
 
         self.cv2 = nn.ModuleList(
-            nn.Sequential(Conv(x, c3, 1), nn.Upsample(scale_factor=i * 2) if i in {1, 2} else nn.Identity())
+            nn.Sequential(
+                Conv(x, c3, 1),
+                nn.Upsample(scale_factor=i * 2) if i in {1, 2} else nn.Identity(),
+            )
             for i, x in enumerate(ch)
         )
 
@@ -2000,7 +2238,9 @@ class SAVPE(nn.Module):
         self.cv3 = nn.Conv2d(3 * c3, embed, 1)
         self.cv4 = nn.Conv2d(3 * c3, self.c, 3, padding=1)
         self.cv5 = nn.Conv2d(1, self.c, 3, padding=1)
-        self.cv6 = nn.Sequential(Conv(2 * self.c, self.c, 3), nn.Conv2d(self.c, self.c, 3, padding=1))
+        self.cv6 = nn.Sequential(
+            Conv(2 * self.c, self.c, 3), nn.Conv2d(self.c, self.c, 3, padding=1)
+        )
 
     def forward(self, x: List[torch.Tensor], vp: torch.Tensor) -> torch.Tensor:
         """Process input features and visual prompts to generate enhanced embeddings."""
@@ -2016,7 +2256,11 @@ class SAVPE(nn.Module):
 
         x = x.view(B, C, -1)
 
-        y = y.reshape(B, 1, self.c, H, W).expand(-1, Q, -1, -1, -1).reshape(B * Q, self.c, H, W)
+        y = (
+            y.reshape(B, 1, self.c, H, W)
+            .expand(-1, Q, -1, -1, -1)
+            .reshape(B * Q, self.c, H, W)
+        )
         vp = vp.reshape(B, Q, 1, H, W).reshape(B * Q, 1, H, W)
 
         y = self.cv6(torch.cat((y, self.cv5(vp)), dim=1))
@@ -2028,6 +2272,195 @@ class SAVPE(nn.Module):
 
         score = F.softmax(score, dim=-1, dtype=torch.float).to(score.dtype)
 
-        aggregated = score.transpose(-2, -3) @ x.reshape(B, self.c, C // self.c, -1).transpose(-1, -2)
+        aggregated = score.transpose(-2, -3) @ x.reshape(
+            B, self.c, C // self.c, -1
+        ).transpose(-1, -2)
 
         return F.normalize(aggregated.transpose(-2, -3).reshape(B, Q, -1), dim=-1, p=2)
+
+
+# 定义 Patch Embedding 层,将图片切分成小块并线性映射到嵌入空间
+class PatchEmbedding(nn.Module):
+    def __init__(self, image_size, patch_size, in_channels, embed_dim):
+        super(PatchEmbedding, self).__init__()
+        self.image_size = image_size
+        self.patch_size = patch_size
+        self.grid_size = image_size // patch_size
+        # 确保图像尺寸能被 patch 尺寸整除
+        assert (
+            image_size % patch_size == 0
+        ), "Image size must be divisible by patch size."
+        self.num_patches = self.grid_size**2
+
+        self.proj = nn.Conv2d(
+            in_channels, embed_dim, kernel_size=patch_size, stride=patch_size
+        )
+
+    def forward(self, x):
+        x = self.proj(
+            x
+        )  # (B, C, H, W) -> (B, embed_dim, num_patches ** 0.5, num_patches ** 0.5)
+        x = x.flatten(
+            2
+        )  # (B, embed_dim, num_patches ** 0.5, num_patches ** 0.5) -> (B, embed_dim, num_patches)
+        x = x.transpose(
+            1, 2
+        )  # (B, embed_dim, num_patches) -> (B, num_patches, embed_dim)
+        return x
+
+
+# 定义多头自注意力机制
+class MultiHeadSelfAttention(nn.Module):
+    def __init__(self, embed_dim, num_heads):
+        super(MultiHeadSelfAttention, self).__init__()
+        assert (
+            embed_dim % num_heads == 0
+        ), "Embedding dimension must be divisible by number of heads."
+
+        self.embed_dim = embed_dim
+        self.num_heads = num_heads
+        self.head_dim = embed_dim // num_heads
+
+        self.qkv_proj = nn.Linear(embed_dim, 3 * embed_dim)
+        self.out_proj = nn.Linear(embed_dim, embed_dim)
+
+    def forward(self, x):
+        B, N, _ = x.shape
+        qkv = self.qkv_proj(x)  # (B, N, 3 * embed_dim)
+        qkv = qkv.reshape(B, N, 3, self.num_heads, self.head_dim).permute(
+            2, 0, 3, 1, 4
+        )  # (3, B, num_heads, N, head_dim)
+        q, k, v = qkv.unbind(0)  # (B, num_heads, N, head_dim)
+
+        attn_scores = torch.matmul(q, k.transpose(-2, -1)) / (
+            self.head_dim**0.5
+        )  # (B, num_heads, N, N)
+        attn_probs = torch.softmax(attn_scores, dim=-1)
+        attn_output = torch.matmul(attn_probs, v)  # (B, num_heads, N, head_dim)
+        attn_output = attn_output.transpose(1, 2).reshape(
+            B, N, self.embed_dim
+        )  # (B, N, embed_dim)
+        output = self.out_proj(attn_output)
+        return output
+
+
+# 定义 Transformer 块
+class TransformerBlock(nn.Module):
+    def __init__(self, embed_dim, num_heads, mlp_dim, dropout=0.1):
+        super(TransformerBlock, self).__init__()
+        self.norm1 = nn.LayerNorm(embed_dim)
+        self.attn = MultiHeadSelfAttention(embed_dim, num_heads)
+        self.dropout = nn.Dropout(dropout)
+        self.norm2 = nn.LayerNorm(embed_dim)
+        self.mlp = nn.Sequential(
+            nn.Linear(embed_dim, mlp_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(mlp_dim, embed_dim),
+            nn.Dropout(dropout),
+        )
+
+    def forward(self, x):
+        x1 = self.norm1(x)
+        attn_output = self.attn(x1)
+        x = x + self.dropout(attn_output)
+        x2 = self.norm2(x)
+        mlp_output = self.mlp(x2)
+        x = x + self.dropout(mlp_output)
+        return x
+
+
+# 定义 Vision Transformer 模型
+class VisionTransformer(nn.Module):
+    def __init__(
+        self,
+        image_size=20,
+        patch_size=1,
+        in_channels=1024,
+        num_classes=10,
+        embed_dim=256,
+        num_heads=8,
+        num_layers=4,
+        mlp_dim=256,
+        dropout=0.1,
+    ):
+        super(VisionTransformer, self).__init__()
+        self.image_size = image_size
+        self.patch_size = patch_size
+        self.grid_size = image_size // patch_size
+        self.base_grid_size = self.grid_size
+        self.in_channels = in_channels
+        self.patch_embed = PatchEmbedding(
+            image_size, patch_size, in_channels, embed_dim
+        )
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+        self.pos_embed = nn.Parameter(
+            torch.zeros(1, 1 + self.patch_embed.num_patches, embed_dim)
+        )
+        self.dropout = nn.Dropout(dropout)
+
+        self.transformer_blocks = nn.ModuleList(
+            [
+                TransformerBlock(embed_dim, num_heads, mlp_dim, dropout)
+                for _ in range(num_layers)
+            ]
+        )
+
+        self.norm = nn.LayerNorm(embed_dim)
+        self.linear = nn.Linear(embed_dim, in_channels * (patch_size**2))
+        self.act = nn.SiLU()
+
+    def _get_pos_embed(self, grid_h, grid_w):
+        cls_pos = self.pos_embed[:, :1]
+        patch_pos = self.pos_embed[:, 1:]
+        patch_pos = patch_pos.reshape(1, self.base_grid_size, self.base_grid_size, -1)
+        patch_pos = patch_pos.permute(0, 3, 1, 2)
+        if (grid_h, grid_w) != (self.base_grid_size, self.base_grid_size):
+            patch_pos = F.interpolate(
+                patch_pos, size=(grid_h, grid_w), mode="bilinear", align_corners=False
+            )
+        patch_pos = patch_pos.permute(0, 2, 3, 1).reshape(1, grid_h * grid_w, -1)
+        return torch.cat((cls_pos, patch_pos), dim=1)
+
+    def forward(self, x):
+        _, _, height, width = x.shape
+        if height % self.patch_size != 0 or width % self.patch_size != 0:
+            raise ValueError(
+                f"Input feature map size {(height, width)} must be divisible by patch_size={self.patch_size}."
+            )
+        grid_h, grid_w = height // self.patch_size, width // self.patch_size
+
+        x1 = self.patch_embed(x)
+        cls_tokens = self.cls_token.expand(x1.shape[0], -1, -1)
+        x1 = torch.cat((cls_tokens, x1), dim=1)
+        x1 = x1 + self._get_pos_embed(grid_h, grid_w).to(
+            device=x1.device, dtype=x1.dtype
+        )
+        x1 = self.dropout(x1)
+
+        for block in self.transformer_blocks:
+            x1 = block(x1)
+
+        # 序列重新变回特征图，再和原输入相加
+        x1 = self.norm(x1)
+        x1 = self.linear(x1)
+        x1 = x1[:, 1:, :]
+
+        # 将每个 patch token 还原成一个 patch, 再拼回完整特征图
+        batch_size = x1.shape[0]
+        x1 = x1.reshape(
+            batch_size,
+            grid_h,
+            grid_w,
+            self.in_channels,
+            self.patch_size,
+            self.patch_size,
+        )
+        x1 = x1.permute(0, 3, 1, 4, 2, 5).reshape(
+            batch_size,
+            self.in_channels,
+            height,
+            width,
+        )
+
+        return x + x1
