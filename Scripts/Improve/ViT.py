@@ -2,17 +2,18 @@ import torch
 import torch.nn as nn
 
 
-# 定义 Patch Embedding 层
+# 定义 Patch Embedding 层,将图片切分成小块并线性映射到嵌入空间
 class PatchEmbedding(nn.Module):
     def __init__(self, image_size, patch_size, in_channels, embed_dim):
         super(PatchEmbedding, self).__init__()
         self.image_size = image_size
         self.patch_size = patch_size
+        self.grid_size = image_size // patch_size
         # 确保图像尺寸能被 patch 尺寸整除
         assert (
             image_size % patch_size == 0
         ), "Image size must be divisible by patch size."
-        self.num_patches = (image_size // patch_size) ** 2
+        self.num_patches = self.grid_size**2
 
         self.proj = nn.Conv2d(
             in_channels, embed_dim, kernel_size=patch_size, stride=patch_size
@@ -107,6 +108,10 @@ class VisionTransformer(nn.Module):
         dropout=0.1,
     ):
         super(VisionTransformer, self).__init__()
+        self.image_size = image_size
+        self.patch_size = patch_size
+        self.grid_size = image_size // patch_size
+        self.in_channels = in_channels
         self.patch_embed = PatchEmbedding(
             image_size, patch_size, in_channels, embed_dim
         )
@@ -115,7 +120,6 @@ class VisionTransformer(nn.Module):
             torch.zeros(1, 1 + self.patch_embed.num_patches, embed_dim)
         )
         self.dropout = nn.Dropout(dropout)
-        self.image_size = image_size
 
         self.transformer_blocks = nn.ModuleList(
             [
@@ -125,12 +129,12 @@ class VisionTransformer(nn.Module):
         )
 
         self.norm = nn.LayerNorm(embed_dim)
-        self.linear = nn.Linear(embed_dim, in_channels)
+        self.linear = nn.Linear(embed_dim, in_channels * (patch_size**2))
         self.act = nn.SiLU()
 
     def forward(self, x):
-        if not list(x.shape)[1:] == [256, 20, 20]:
-            return x
+        # if not list(x.shape)[1:] == [256, 20, 20]:
+        #     return x
         x1 = self.patch_embed(x)
         cls_tokens = self.cls_token.expand(x1.shape[0], -1, -1)
         x1 = torch.cat((cls_tokens, x1), dim=1)
@@ -140,20 +144,36 @@ class VisionTransformer(nn.Module):
         for block in self.transformer_blocks:
             x1 = block(x1)
 
+        # 序列重新变回特征图，再和原输入相加
         x1 = self.norm(x1)
         x1 = self.linear(x1)
         x1 = x1[:, 1:, :]
-        x1 = torch.transpose(x1, -1, -2)
-        x1 = x1.reshape(x1.shape[0], x1.shape[1], self.image_size, self.image_size)
+
+        # 将每个 patch token 还原成一个 patch, 再拼回完整特征图
+        batch_size = x1.shape[0]
+        x1 = x1.reshape(
+            batch_size,
+            self.grid_size,
+            self.grid_size,
+            self.in_channels,
+            self.patch_size,
+            self.patch_size,
+        )
+        x1 = x1.permute(0, 3, 1, 4, 2, 5).reshape(
+            batch_size,
+            self.in_channels,
+            self.image_size,
+            self.image_size,
+        )
 
         return x + x1
 
 
-# 测试代码
+# 测试代码输出,输出
 if __name__ == "__main__":
     batch_size = 2
     channels = 1024
-    model = VisionTransformer(20, 1, 512, 10, 256, 8, 4, 256, 0.1)
+    model = VisionTransformer(20, 2, 512, 10, 256, 8, 4, 256, 0.1)
     x = torch.randn(2, 512, 20, 20)
     output = model(x)
     print(output.shape)
