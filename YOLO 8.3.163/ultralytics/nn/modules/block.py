@@ -2560,7 +2560,11 @@ class WindowAttention(nn.Module):
             self.window_size[0] * self.window_size[1],
             -1,
         )
-        attn = attn + relative_position_bias.permute(2, 0, 1).contiguous().unsqueeze(0)
+        relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()
+        relative_position_bias = relative_position_bias.to(
+            device=attn.device, dtype=attn.dtype
+        )
+        attn = attn + relative_position_bias.unsqueeze(0)
 
         if mask is not None:
             num_windows = mask.shape[0]
@@ -2571,10 +2575,12 @@ class WindowAttention(nn.Module):
                 num_tokens,
                 num_tokens,
             )
-            attn = attn + mask.unsqueeze(1).unsqueeze(0)
+            attn = attn + mask.to(device=attn.device, dtype=attn.dtype).unsqueeze(
+                1
+            ).unsqueeze(0)
             attn = attn.view(-1, self.num_heads, num_tokens, num_tokens)
 
-        attn = self.attn_drop(self.softmax(attn))
+        attn = self.attn_drop(self.softmax(attn)).to(dtype=v.dtype)
         x = (attn @ v).transpose(1, 2).reshape(batch_windows, num_tokens, channels)
         x = self.proj(x)
         return self.proj_drop(x)

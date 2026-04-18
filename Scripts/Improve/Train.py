@@ -34,6 +34,35 @@ WEIGHTS = (
 # )
 OUTPUT_DIR = ROOT / "Scripts" / "Improve" / "Output"
 
+if not isinstance(WEIGHTS, Path):
+    raise TypeError(
+        f"[错误] WEIGHTS 必须是 pathlib.Path，当前类型为 {type(WEIGHTS).__name__}。"
+        "请检查是否误写成了括号表达式或 tuple。"
+    )
+
+
+STRICT_COMPARE_TRAIN_ARGS = {
+    "epochs": 30,
+    "patience": 20,
+    "optimizer": "AdamW",
+    "lr0": 1e-3,
+    "lrf": 0.01,
+    "momentum": 0.937,
+    "weight_decay": 5e-4,
+    "warmup_epochs": 3,
+    "cos_lr": True,
+}
+
+STRICT_COMPARE_AUGMENT_ARGS = {
+    "hsv_h": 0.015,
+    "hsv_s": 0.7,
+    "hsv_v": 0.4,
+    "flipud": 0.0,
+    "fliplr": 0.5,
+    "mosaic": 1.0,
+    "mixup": 0.1,
+}
+
 
 def parse_env_value(name: str, default):
     value = os.getenv(name)
@@ -59,65 +88,52 @@ def get_device() -> str | int:
     return "cpu"
 
 
-# ── 根据显存自动调整 batch size ─────────────────────────────────
-def auto_batch(device) -> int:
+# ── 严格对比时使用统一的共同可跑 batch size ──────────────────────
+def resolve_compare_batch(device) -> int:
     if device == "cpu":
-        return 4
+        return 2
     vram_gb = torch.cuda.get_device_properties(device).total_memory / 1024**3
-    # RTX 4070 Ti = 12 GB；640px 图像下经验值
     if vram_gb >= 24:
+        return 48
+    elif vram_gb >= 16:
         return 32
-    elif vram_gb >= 11:  # 4070 Ti = 12282 MiB ≈ 11.99 GB
-        return 16
     elif vram_gb >= 8:
-        return 8
-    return 4
+        return 12
+    return 8
+
+
+def resolve_model_tag() -> str:
+    model_name = WEIGHTS.stem.lower()
+    if "swin" in model_name:
+        return "swin_t"
+    if "vif" in model_name or "transformer" in model_name:
+        return "vif"
+    return model_name.replace("-", "_")
 
 
 def resolve_train_config(device) -> dict:
-    model_name = WEIGHTS.stem.lower()
-    is_swin = "swin" in model_name
-    is_vit = "vit" in model_name or "transformer" in model_name
+    model_tag = resolve_model_tag()
     is_cpu = device == "cpu"
 
-    if is_cpu:
-        defaults = {
-            "imgsz": 640,
-            "batch": 2,
-            "workers": 0,
-            "amp": False,
-            "name": "vehicles_yolov8_cpu",
-        }
-    elif is_swin:
-        defaults = {
-            "imgsz": 512,
-            "batch": 0.5,
-            "workers": 4,
-            "amp": True,
-            "name": "vehicles_yolov8_swin_t",
-        }
-    elif is_vit:
-        defaults = {
-            "imgsz": 576,
-            "batch": max(2, auto_batch(device) // 2),
-            "workers": 4,
-            "amp": True,
-            "name": "vehicles_yolov8_vit",
-        }
-    else:
-        defaults = {
-            "imgsz": 640,
-            "batch": auto_batch(device),
-            "workers": 8,
-            "amp": True,
-            "name": "vehicles_yolov8n",
-        }
+    defaults = {
+        "imgsz": 512,
+        "batch": resolve_compare_batch(device),
+        "nbs": 2 if is_cpu else 16,
+        "workers": 0 if is_cpu else 4,
+        "amp": False,
+        "epochs": STRICT_COMPARE_TRAIN_ARGS["epochs"],
+        "optimizer": STRICT_COMPARE_TRAIN_ARGS["optimizer"],
+        "name": f"vehicles_strict_compare_{model_tag}",
+    }
 
     return {
         "imgsz": parse_env_value("YOLO_TRAIN_IMGSZ", defaults["imgsz"]),
         "batch": parse_env_value("YOLO_TRAIN_BATCH", defaults["batch"]),
+        "nbs": parse_env_value("YOLO_TRAIN_EFFECTIVE_BATCH", defaults["nbs"]),
         "workers": parse_env_value("YOLO_TRAIN_WORKERS", defaults["workers"]),
         "amp": parse_env_value("YOLO_TRAIN_AMP", defaults["amp"]),
+        "epochs": parse_env_value("YOLO_TRAIN_EPOCHS", defaults["epochs"]),
+        "optimizer": parse_env_value("YOLO_TRAIN_OPTIMIZER", defaults["optimizer"]),
         "name": parse_env_value("YOLO_TRAIN_NAME", defaults["name"]),
     }
 
@@ -142,12 +158,11 @@ def train():
     train_cfg = resolve_train_config(device)
     print(
         f"[配置] device={device}  imgsz={train_cfg['imgsz']}  batch={train_cfg['batch']}  "
-        f"workers={train_cfg['workers']}  amp={train_cfg['amp']}"
+        f"effective_batch={train_cfg['nbs']}  workers={train_cfg['workers']}  amp={train_cfg['amp']}"
     )
-    if "swin" in WEIGHTS.stem.lower():
-        print(
-            "[提示] Swin backbone 显存开销明显高于普通 YOLOv8n，已自动切换到保守配置。"
-        )
+    print(
+        "[提示] 当前使用严格对比配置：统一 imgsz、有效 batch、amp、epochs、optimizer 和增强策略。"
+    )
 
     # 加载预训练模型
     model = YOLO(str(WEIGHTS))
@@ -157,29 +172,24 @@ def train():
     # ── 训练参数 ────────────────────────────────────────────────
     results = model.train(
         data=str(DATA_YAML),  # 数据集 yaml
-        epochs=30,  # 训练轮次
+        epochs=train_cfg["epochs"],  # 训练轮次
         imgsz=train_cfg["imgsz"],  # 输入图像尺寸
-        batch=train_cfg["batch"],  # 批大小，float 表示 AutoBatch 显存占用比例
+        batch=train_cfg["batch"],  # 共同可跑的实际 batch size
+        nbs=train_cfg["nbs"],  # Ultralytics 会按 nbs / batch 自动做梯度累积
         device=device,  # GPU/CPU
         workers=train_cfg["workers"],  # 数据加载线程数
-        patience=20,  # Early stopping 容忍轮次
-        optimizer="AdamW",  # 优化器
-        lr0=1e-3,  # 初始学习率
-        lrf=0.01,  # 最终学习率 = lr0 * lrf
-        momentum=0.937,
-        weight_decay=5e-4,
-        warmup_epochs=3,  # 热身轮次
-        cos_lr=True,  # 余弦学习率调度
+        patience=STRICT_COMPARE_TRAIN_ARGS["patience"],  # Early stopping 容忍轮次
+        optimizer=train_cfg["optimizer"],  # 优化器
+        lr0=STRICT_COMPARE_TRAIN_ARGS["lr0"],  # 初始学习率
+        lrf=STRICT_COMPARE_TRAIN_ARGS["lrf"],  # 最终学习率 = lr0 * lrf
+        momentum=STRICT_COMPARE_TRAIN_ARGS["momentum"],
+        weight_decay=STRICT_COMPARE_TRAIN_ARGS["weight_decay"],
+        warmup_epochs=STRICT_COMPARE_TRAIN_ARGS["warmup_epochs"],  # 热身轮次
+        cos_lr=STRICT_COMPARE_TRAIN_ARGS["cos_lr"],  # 余弦学习率调度
         # 数据增强
-        hsv_h=0.015,
-        hsv_s=0.7,
-        hsv_v=0.4,
-        flipud=0.0,
-        fliplr=0.5,
-        mosaic=1.0,
-        mixup=0.1,
+        **STRICT_COMPARE_AUGMENT_ARGS,
         # 输出路径
-        amp=False,
+        amp=train_cfg["amp"],
         project=str(OUTPUT_DIR),
         name=train_cfg["name"],
         exist_ok=True,  # 允许覆盖已有实验
