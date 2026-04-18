@@ -15,8 +15,8 @@ from ultralytics import YOLO
 # ── 路径配置（相对于项目根目录）────────────────────────────────
 DATA_YAML = ROOT / "Data" / "Vehicles" / "data.yaml"
 # WEIGHTS = LOCAL_YOLO_SRC / "ultralytics" / "cfg" / "models" / "v8" / "yolov8.yaml"
-WEIGHTS = LOCAL_YOLO_SRC / "ultralytics" / "cfg" / "models" / "v8" / "yolov8_vif.yaml"
-# WEIGHTS = ROOT / "Model" / "YOLOv8" / "yolo8n" / "yolov8n.pt"
+# WEIGHTS = LOCAL_YOLO_SRC / "ultralytics" / "cfg" / "models" / "v8" / "yolov8_vif.yaml"
+WEIGHTS = ROOT / "Model" / "YOLOv8" / "yolo8n" / "yolov8n.pt"
 OUTPUT_DIR = ROOT / "Scripts" / "Improve" / "Output"
 
 
