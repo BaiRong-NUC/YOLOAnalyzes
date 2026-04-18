@@ -16,19 +16,19 @@ from ultralytics import YOLO
 DATA_YAML = ROOT / "Data" / "Vehicles" / "data.yaml"
 # WEIGHTS = LOCAL_YOLO_SRC / "ultralytics" / "cfg" / "models" / "v8" / "yolov8.yaml"
 # WEIGHTS = LOCAL_YOLO_SRC / "ultralytics" / "cfg" / "models" / "v8" / "yolov8_vif.yaml"
-# WEIGHTS = ROOT / "Model" / "YOLOv8" / "yolo8n" / "yolov8n.pt"
+WEIGHTS = ROOT / "Model" / "YOLOv8" / "yolo8n" / "yolov8n.pt"
 # WEIGHTS = ROOT / "Scripts" / "Improve" / "Debug" / "mixed_yolov_vif.pt"
 
 # mixed_yolov_vif.pt冻结参数训练,之后整体训练
-WEIGHTS = (
-    ROOT
-    / "Scripts"
-    / "Improve"
-    / "Output-mixed_yolov_vif_freeze"
-    / "vehicles_yolov8n"
-    / "weights"
-    / "best.pt"
-)
+# WEIGHTS = (
+#     ROOT
+#     / "Scripts"
+#     / "Improve"
+#     / "Output-mixed_yolov_vif_freeze"
+#     / "vehicles_yolov8n"
+#     / "weights"
+#     / "best.pt"
+# )
 OUTPUT_DIR = ROOT / "Scripts" / "Improve" / "Output"
 
 
