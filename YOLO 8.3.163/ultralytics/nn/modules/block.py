@@ -2424,11 +2424,16 @@ class VisionTransformer(nn.Module):
 
     def forward(self, x):
         _, _, height, width = x.shape
-        if height % self.patch_size != 0 or width % self.patch_size != 0:
-            raise ValueError(
-                f"Input feature map size {(height, width)} must be divisible by patch_size={self.patch_size}."
-            )
-        grid_h, grid_w = height // self.patch_size, width // self.patch_size
+        pad_h = (-height) % self.patch_size
+        pad_w = (-width) % self.patch_size
+        if pad_h or pad_w:
+            x = F.pad(x, (0, pad_w, 0, pad_h), mode="replicate")
+
+        padded_height, padded_width = x.shape[2:]
+        grid_h, grid_w = (
+            padded_height // self.patch_size,
+            padded_width // self.patch_size,
+        )
 
         x1 = self.patch_embed(x)
         cls_tokens = self.cls_token.expand(x1.shape[0], -1, -1)
@@ -2459,8 +2464,11 @@ class VisionTransformer(nn.Module):
         x1 = x1.permute(0, 3, 1, 4, 2, 5).reshape(
             batch_size,
             self.in_channels,
-            height,
-            width,
+            padded_height,
+            padded_width,
         )
+        if pad_h or pad_w:
+            x1 = x1[:, :, :height, :width]
+            x = x[:, :, :height, :width]
 
         return x + x1
