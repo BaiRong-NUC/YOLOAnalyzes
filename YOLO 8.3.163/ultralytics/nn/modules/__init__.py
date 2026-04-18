@@ -58,6 +58,7 @@ from .block import (
     RepVGGDW,
     ResNetLayer,
     SCDown,
+    SwinTransformer,
     TorchVision,
     VisionTransformer,
 )
@@ -178,6 +179,7 @@ __all__ = (
     "Attention",
     "PSA",
     "TorchVision",
+    "SwinTransformer",
     "Index",
     "A2C2f",
 )

@@ -63,6 +63,7 @@ from ultralytics.nn.modules import (
     RTDETRDecoder,
     SCDown,
     Segment,
+    SwinTransformer,
     TorchVision,
     WorldDetect,
     YOLOEDetect,
@@ -1940,6 +1941,9 @@ def parse_model(d, ch, verbose=True):
             args = [c1, c2, *args[1:]]
         elif m is CBFuse:
             c2 = ch[f[-1]]
+        elif m is SwinTransformer:
+            c2 = args[0]
+            args = [ch[f], *args[1:]]
         elif m in frozenset({TorchVision, Index}):
             c2 = args[0]
             c1 = ch[f]
