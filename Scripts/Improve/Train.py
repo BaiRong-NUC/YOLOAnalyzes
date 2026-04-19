@@ -14,13 +14,12 @@ from ultralytics import YOLO
 
 # ── 路径配置（相对于项目根目录）────────────────────────────────
 DATA_YAML = ROOT / "Data" / "Vehicles" / "data.yaml"
-# WEIGHTS = LOCAL_YOLO_SRC / "ultralytics" / "cfg" / "models" / "v8" / "yolov8.yaml"
+# 只保留一条生效的 WEIGHTS 路径，其他候选项保持注释，避免被 tuple 占位覆盖。
+WEIGHTS = LOCAL_YOLO_SRC / "ultralytics" / "cfg" / "models" / "v8" / "yolov8.yaml"
 # WEIGHTS = LOCAL_YOLO_SRC / "ultralytics" / "cfg" / "models" / "v8" / "yolov8_vif.yaml"
 # WEIGHTS = ROOT / "Model" / "YOLOv8" / "yolo8n" / "yolov8n.pt"
 # WEIGHTS = ROOT / "Scripts" / "Improve" / "Debug" / "mixed_yolov_vif.pt"
-WEIGHTS = (
-    LOCAL_YOLO_SRC / "ultralytics" / "cfg" / "models" / "v8" / "yolov8-swin-t.yaml"
-)
+# WEIGHTS = LOCAL_YOLO_SRC / "ultralytics" / "cfg" / "models" / "v8" / "yolov8-swin-t.yaml"
 
 # mixed_yolov_vif.pt冻结参数训练,之后整体训练
 # WEIGHTS = (
@@ -149,7 +148,7 @@ def train():
         print(f"[错误] 数据集配置文件不存在: {DATA_YAML}")
         sys.exit(1)
     if not WEIGHTS.exists():
-        print(f"[错误] yolov8.yaml配置文件不存在: {WEIGHTS}")
+        print(f"[错误] 模型配置或权重文件不存在: {WEIGHTS}")
         sys.exit(1)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
