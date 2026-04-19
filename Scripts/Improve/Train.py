@@ -116,7 +116,7 @@ def train():
         save_period=10,  # 每 10 轮保存一次 checkpoint
         verbose=True,
         # 参数冻结
-        # freeze=list(range(0, 10)),  # 冻结前 10 层（根据模型结构调整）
+        freeze=list(range(0, 10)),  # 冻结前 10 层（根据模型结构调整）
     )
 
     # ── 训练结束后在验证集上评估 ────────────────────────────────
