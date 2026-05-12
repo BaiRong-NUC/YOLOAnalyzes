@@ -63,6 +63,26 @@ def find_default_model() -> Path:
 DEFAULT_MODEL = find_default_model()
 MY_MODEL = Path("/home/bairong/Code/Python/YOLOAnalyzes/Scripts/Improve/Output/best.pt")
 APP_TITLE = "YOLO 模型部署演示"
+MIN_DISPLAY_COUNT = 12
+
+
+def filter_counter(counter: Counter[str]) -> Counter[str]:
+    return Counter(
+        {
+            class_name: count
+            for class_name, count in counter.items()
+            if count >= MIN_DISPLAY_COUNT
+        }
+    )
+
+
+def get_local_ip() -> str:
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("8.8.8.8", 80))
+            return str(sock.getsockname()[0])
+    except OSError:
+        return "127.0.0.1"
 
 
 def find_available_port(preferred_port: int = 7860, max_tries: int = 20) -> int:
@@ -93,14 +113,21 @@ def build_stats(result) -> tuple[pd.DataFrame, str]:
     names = result.names
     class_ids = [int(class_id) for class_id in boxes.cls.tolist()]
     counter = Counter(names[class_id] for class_id in class_ids)
+    filtered_counter = filter_counter(counter)
     stats = pd.DataFrame(
         [
             {"类别": class_name, "数量": count}
-            for class_name, count in counter.most_common()
+            for class_name, count in filtered_counter.most_common()
         ],
         columns=["类别", "数量"],
     )
-    summary = f"检测到 {len(class_ids)} 个目标，共 {len(counter)} 个类别"
+    if filtered_counter:
+        summary = (
+            f"检测到 {sum(filtered_counter.values())} 个目标，共"
+            f" {len(filtered_counter)} 个类别"
+        )
+    else:
+        summary = "未检测到目标"
     return stats, summary
 
 
@@ -183,17 +210,22 @@ def build_video_summary(
         empty = pd.DataFrame(columns=["类别", "累计检测次数"])
         return empty, f"已处理 {frame_count} 帧，未检测到目标"
 
+    filtered_counter = filter_counter(counter)
     stats = pd.DataFrame(
         [
             {"类别": class_name, "累计检测次数": count}
-            for class_name, count in counter.most_common()
+            for class_name, count in filtered_counter.most_common()
         ],
         columns=["类别", "累计检测次数"],
     )
-    summary = (
-        f"已处理 {frame_count} 帧，累计检测 {total_detections} 次。"
-        "视频统计为逐帧累计次数，未做跨帧去重。"
-    )
+    if filtered_counter:
+        summary = (
+            f"已处理 {frame_count} 帧，累计检测 {sum(filtered_counter.values())} 次，"
+            f"共 {len(filtered_counter)} 个类别。"
+            "视频统计为逐帧累计次数，未做跨帧去重。"
+        )
+    else:
+        summary = f"已处理 {frame_count} 帧，未检测到目标。"
     return stats, summary
 
 
@@ -335,8 +367,20 @@ def build_demo() -> gr.Blocks:
 
 if __name__ == "__main__":
     demo = build_demo()
+    server_name = os.getenv("GRADIO_SERVER_NAME", "127.0.0.1")
     server_port = find_available_port(int(os.getenv("GRADIO_SERVER_PORT", "7860")))
+    local_ip = get_local_ip()
+
+    if server_name in {"0.0.0.0", "::"}:
+        access_host = local_ip
+    else:
+        access_host = server_name
+
+    print(f"服务启动地址: http://{access_host}:{server_port}")
+    print(f"监听 IP: {server_name}")
+    print(f"监听端口: {server_port}")
+
     try:
-        demo.launch(server_name="127.0.0.1", server_port=server_port)
+        demo.launch(server_name=server_name, server_port=server_port)
     except KeyboardInterrupt:
         print("服务已停止")
