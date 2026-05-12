@@ -13,6 +13,8 @@ import cv2
 import gradio as gr
 import pandas as pd
 from imageio_ffmpeg import get_ffmpeg_exe
+import sys
+import asyncio
 
 os.environ.setdefault("YOLO_OFFLINE", "true")
 
@@ -26,16 +28,16 @@ def ignore_connection_reset(loop: asyncio.AbstractEventLoop, context: dict) -> N
         return
     loop.default_exception_handler(context)
 
-
 if sys.platform.startswith("win"):
+    base_policy = getattr(asyncio, "WindowsSelectorEventLoopPolicy", None)
+    if base_policy is not None:
+        class QuietWindowsSelectorEventLoopPolicy(base_policy):
+            def new_event_loop(self):
+                loop = super().new_event_loop()
+                loop.set_exception_handler(ignore_connection_reset)
+                return loop
 
-    class QuietWindowsSelectorEventLoopPolicy(asyncio.WindowsSelectorEventLoopPolicy):
-        def new_event_loop(self):
-            loop = super().new_event_loop()
-            loop.set_exception_handler(ignore_connection_reset)
-            return loop
-
-    asyncio.set_event_loop_policy(QuietWindowsSelectorEventLoopPolicy())
+        asyncio.set_event_loop_policy(QuietWindowsSelectorEventLoopPolicy())
 
 ROOT = Path(__file__).resolve().parents[2]
 LOCAL_YOLO_SRC = ROOT / "YOLO 8.3.163"
