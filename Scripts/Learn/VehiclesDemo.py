@@ -13,8 +13,6 @@ import cv2
 import gradio as gr
 import pandas as pd
 from imageio_ffmpeg import get_ffmpeg_exe
-import sys
-import asyncio
 
 os.environ.setdefault("YOLO_OFFLINE", "true")
 
@@ -28,9 +26,11 @@ def ignore_connection_reset(loop: asyncio.AbstractEventLoop, context: dict) -> N
         return
     loop.default_exception_handler(context)
 
+
 if sys.platform.startswith("win"):
     base_policy = getattr(asyncio, "WindowsSelectorEventLoopPolicy", None)
     if base_policy is not None:
+
         class QuietWindowsSelectorEventLoopPolicy(base_policy):
             def new_event_loop(self):
                 loop = super().new_event_loop()
@@ -103,6 +103,10 @@ def build_stats(result) -> tuple[pd.DataFrame, str]:
     return stats, summary
 
 
+def empty_stats() -> pd.DataFrame:
+    return pd.DataFrame(columns=["类别", "数量"])
+
+
 def annotate_image(result):
     annotated = result.plot()
     return cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
@@ -142,15 +146,33 @@ def make_browser_video(video_path: Path) -> Path:
     return video_path
 
 
-def predict_image(image, model_path: str, conf: float, imgsz: int):
+def run_image_detection(image, model_path: str, conf: float, imgsz: int):
     if image is None:
-        raise gr.Error("请先上传一张图片")
+        return None, empty_stats(), "等待输入画面"
 
     model = load_model(model_path)
     result = model.predict(source=image, conf=conf, imgsz=imgsz, verbose=False)[0]
     annotated = annotate_image(result)
     stats, summary = build_stats(result)
     return annotated, stats, summary
+
+
+def predict_image(image, model_path: str, conf: float, imgsz: int):
+    if image is None:
+        raise gr.Error("请先上传一张图片")
+
+    return run_image_detection(image, model_path, conf, imgsz)
+
+
+def predict_webcam_frame(image, model_path: str, conf: float, imgsz: int):
+    annotated, stats, summary = run_image_detection(image, model_path, conf, imgsz)
+    if image is None:
+        return None, empty_stats(), "等待摄像头画面"
+    return annotated, stats, f"实时检测中: {summary}"
+
+
+def reset_webcam_outputs():
+    return None, empty_stats(), "摄像头检测已停止"
 
 
 def build_video_summary(
@@ -237,13 +259,11 @@ def predict_video(
 
 def build_demo() -> gr.Blocks:
     with gr.Blocks(title=APP_TITLE) as demo:
-        gr.Markdown(
-            f"""
+        gr.Markdown(f"""
             # {APP_TITLE}
             支持图片检测、视频检测和类别统计。默认使用 {DEFAULT_MODEL}。
             如果你已经训练出自己的 best.pt，可以直接把模型路径改成你的权重文件。
-            """
-        )
+            """)
 
         with gr.Row():
             model_path = gr.Textbox(label="模型路径", value=str(DEFAULT_MODEL), scale=4)
@@ -277,6 +297,34 @@ def build_demo() -> gr.Blocks:
                 fn=predict_video,
                 inputs=[video_input, model_path, conf, imgsz],
                 outputs=[video_output, video_stats, video_summary],
+            )
+
+        with gr.Tab("摄像头检测"):
+            gr.Markdown(
+                "允许浏览器调用本机摄像头，采集到的画面会逐帧送入模型做实时检测。"
+            )
+            with gr.Row():
+                webcam_input = gr.Image(
+                    label="摄像头输入",
+                    sources=["webcam"],
+                    type="numpy",
+                    streaming=True,
+                )
+                webcam_output = gr.Image(label="实时检测结果")
+            webcam_stats = gr.Dataframe(label="当前帧类别统计", interactive=False)
+            webcam_summary = gr.Textbox(
+                value="点击摄像头按钮开始采集", label="状态", interactive=False
+            )
+            webcam_clear = gr.Button("停止并清空结果")
+            webcam_input.stream(
+                fn=predict_webcam_frame,
+                inputs=[webcam_input, model_path, conf, imgsz],
+                outputs=[webcam_output, webcam_stats, webcam_summary],
+            )
+            webcam_clear.click(
+                fn=reset_webcam_outputs,
+                inputs=None,
+                outputs=[webcam_output, webcam_stats, webcam_summary],
             )
 
     return demo
