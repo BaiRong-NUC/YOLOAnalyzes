@@ -61,7 +61,8 @@ def find_default_model() -> Path:
 
 
 DEFAULT_MODEL = find_default_model()
-APP_TITLE = "YOLO 车辆检测最小演示版"
+MY_MODEL = Path("/home/bairong/Code/Python/YOLOAnalyzes/Scripts/Improve/Output/best.pt")
+APP_TITLE = "YOLO 模型部署演示"
 
 
 def find_available_port(preferred_port: int = 7860, max_tries: int = 20) -> int:
@@ -259,14 +260,16 @@ def predict_video(
 
 def build_demo() -> gr.Blocks:
     with gr.Blocks(title=APP_TITLE) as demo:
-        gr.Markdown(f"""
+        gr.Markdown(
+            f"""
             # {APP_TITLE}
             支持图片检测、视频检测和类别统计。默认使用 {DEFAULT_MODEL}。
-            如果你已经训练出自己的 best.pt，可以直接把模型路径改成你的权重文件。
-            """)
+            如果你已经训练出自己的 best.pt,可以直接把模型路径改成你的权重文件。
+            """
+        )
 
         with gr.Row():
-            model_path = gr.Textbox(label="模型路径", value=str(DEFAULT_MODEL), scale=4)
+            model_path = gr.Textbox(label="模型路径", value=str(MY_MODEL), scale=4)
             conf = gr.Slider(
                 label="置信度阈值", minimum=0.1, maximum=0.9, value=0.25, step=0.05
             )
